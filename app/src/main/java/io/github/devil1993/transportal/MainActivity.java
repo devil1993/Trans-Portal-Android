@@ -65,10 +65,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+//        Toast.makeText(this,"On pause of main",Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+//        Toast.makeText(this,"On stop of main",Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
     protected void onStart() {
         super.onStart();
         FirebaseUser fbu = FirebaseAuth.getInstance().getCurrentUser();
         String msg = "Signed in as " + fbu.getEmail();
         Toast.makeText(MainActivity.this,msg,Toast.LENGTH_SHORT).show();
+
     }
 }

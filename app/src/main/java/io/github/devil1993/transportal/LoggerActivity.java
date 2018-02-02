@@ -12,6 +12,7 @@ import android.os.Environment;
 import android.provider.Settings;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,28 +25,50 @@ import com.google.firebase.storage.UploadTask;
 
 import java.io.File;
 import java.io.PrintWriter;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
 public class LoggerActivity extends AppCompatActivity{
-    private TextView tvGPS, tvWifi;
+    private TextView tvGPS, tvWifi,tvSpeed,tvOpenWifi,tvCount;
     LocationManager service;
     String provider,mode,ID;
     WifiManager wifiManager;
-    PrintWriter gpsWriter,wifiWriter;
+    PrintWriter gpsWriter,wifiWriter, hariDesai;
     Location location;
+    SeekBar seekBar;
+    float progress;
+    boolean isActive;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_logger);
+        seekBar = findViewById(R.id.seekBar);
         tvGPS = findViewById(R.id.tvGPS);
         tvWifi = findViewById(R.id.tvWifi);
+        tvSpeed = findViewById(R.id.tvSpeed);
+        tvOpenWifi = findViewById(R.id.tvFreeWiFi);
+        tvCount = findViewById(R.id.tvWiFiCount);
         mode = getIntent().getStringExtra("MODE");
         ID = UUID.randomUUID().toString();
+        isActive = false;
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+                progress = (float)i/100;
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
 
         wifiManager = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
         service = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -73,6 +96,7 @@ public class LoggerActivity extends AppCompatActivity{
         }
 
         try{
+            hariDesai = new PrintWriter(appDir+"/"+mode.toLowerCase()+"_MARKING_"+ID+".txt", "UTF-8");
             gpsWriter = new PrintWriter(appDir+"/"+mode.toLowerCase()+"_GPS_"+ID+".txt", "UTF-8");
             wifiWriter = new PrintWriter(appDir+"/"+mode.toLowerCase()+"_WIFI_"+ID+".txt", "UTF-8");
         }
@@ -80,45 +104,7 @@ public class LoggerActivity extends AppCompatActivity{
             Toast.makeText(this,e.getMessage(),Toast.LENGTH_SHORT);
             finish();
         }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if(gpsWriter != null){
-            gpsWriter.close();
-        }
-        if(wifiWriter!= null){
-            wifiWriter.close();
-        }
-        // Upload files to cloud storage
-        FirebaseStorage storage = FirebaseStorage.getInstance();
-        StorageReference storageRef = storage.getReference();
-
-        Uri wifiFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
-                +"/TransPortal/"+mode.toLowerCase()+"_WIFI_"+ID+".txt"));
-        Uri gpsFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
-                +"/TransPortal/"+mode.toLowerCase()+"_GPS_"+ID+".txt"));
-
-        StorageReference wifiRef = storageRef.child(wifiFile.getLastPathSegment());
-        StorageReference gpsRef = storageRef.child(gpsFile.getLastPathSegment());
-        UploadTask wifiUploadTask = wifiRef.putFile(wifiFile);
-        UploadTask gpsUploadTask = gpsRef.putFile(gpsFile);
-        DatabaseReference mDatabase;
-        mDatabase = FirebaseDatabase.getInstance().getReference().child("files");
-        mDatabase.push().setValue(wifiFile.getLastPathSegment());
-        mDatabase.push().setValue(gpsFile.getLastPathSegment());
-
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
+        isActive = true;
         LocationListener loclist = new LocationListener() {
             @Override
             public void onLocationChanged(Location location1) {
@@ -148,12 +134,22 @@ public class LoggerActivity extends AppCompatActivity{
                             LoggerActivity.this.GPSAccess(currentDateandTime);
                             List<ScanResult> ws  = wifiManager.getScanResults();
                             String s = "";
+                            String open = "";
+                            tvCount.setText(ws.size()+"");
                             for(ScanResult wifi :ws){
-                                s += wifi.SSID + " ";
+                                s += wifi.SSID + ", ";
                                 wifiWriter.println(wifi.BSSID+","+wifi.SSID+","+wifi.level+","+currentDateandTime);
+//                                System.out.println(wifi.SSID+":"+wifi.capabilities);
+                                if(!(wifi.capabilities.contains("WPA")||wifi.capabilities.contains("WPA2"))){
+                                    open += wifi.SSID + ",";
+                                }
                             }
+                            tvOpenWifi.setText(open);
 //                            System.out.println(s);
                             tvWifi.setText(s);
+                            if(isActive){
+                                hariDesai.println(progress+","+currentDateandTime);
+                            }
                         }
                     });
                     try {
@@ -172,15 +168,82 @@ public class LoggerActivity extends AppCompatActivity{
         }
     }
 
+    @Override
+    protected void onDestroy() {
+//        Toast.makeText(this,"OnDestroy called",Toast.LENGTH_SHORT).show();
+        super.onDestroy();
+        if(gpsWriter != null){
+            gpsWriter.close();
+        }
+        if(wifiWriter!= null){
+            wifiWriter.close();
+        }
+        if(hariDesai != null){
+            hariDesai.close();
+        }
+        // Upload files to cloud storage
+        FirebaseStorage storage = FirebaseStorage.getInstance();
+        StorageReference storageRef = storage.getReference();
+
+        Uri wifiFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
+                +"/TransPortal/"+mode.toLowerCase()+"_WIFI_"+ID+".txt"));
+        Uri gpsFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
+                +"/TransPortal/"+mode.toLowerCase()+"_GPS_"+ID+".txt"));
+        Uri markFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
+                +"/TransPortal/"+mode.toLowerCase()+"_MARKING_"+ID+".txt"));
+
+        StorageReference wifiRef = storageRef.child(wifiFile.getLastPathSegment());
+        StorageReference gpsRef = storageRef.child(gpsFile.getLastPathSegment());
+        StorageReference markRef = storageRef.child(markFile.getLastPathSegment());
+        UploadTask wifiUploadTask = wifiRef.putFile(wifiFile);
+        UploadTask gpsUploadTask = gpsRef.putFile(gpsFile);
+        UploadTask markUploadTask = markRef.putFile(markFile);
+        DatabaseReference mDatabase;
+        mDatabase = FirebaseDatabase.getInstance().getReference().child("files");
+        mDatabase.push().setValue(wifiFile.getLastPathSegment());
+        mDatabase.push().setValue(gpsFile.getLastPathSegment());
+        mDatabase.push().setValue(markFile.getLastPathSegment());
+
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+//        Toast.makeText(this,"On Start called",Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+//        Toast.makeText(this,"On Stop called",Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        isActive = false;
+//        Toast.makeText(this,"On Pause called",Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        isActive = true;
+//        Toast.makeText(this,"On Resume called",Toast.LENGTH_SHORT).show();
+
+    }
+
     private void GPSAccess(String time){
         try {
             location = service.getLastKnownLocation(provider);
             if (location != null) {
 //                System.out.println(mode+" GPS " + ID);
                 tvGPS.setText(location.getLatitude() + "," + location.getLongitude());
+                tvSpeed.setText((location.getSpeed()*3.6)+" Km/h");
                 gpsWriter.println(location.getLatitude() + "," + location.getLongitude()+","
-                        +location.getSpeed()+","+location.getSpeed()+","+time);
+                        +location.getSpeed()+","+location.getAltitude()+","+time);
             } else {
+                    tvSpeed.setText("Speed not available");
                     tvGPS.setText("Location not available.");
             }
         } catch (SecurityException e) {

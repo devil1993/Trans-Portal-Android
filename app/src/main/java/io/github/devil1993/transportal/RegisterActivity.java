@@ -55,6 +55,7 @@ public class RegisterActivity extends AppCompatActivity {
                                         // Sign in success, update UI with the signed-in user's information
 //                                        Log.v("dhus","dhusDhus");
                                         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+
                                         if(user == null){
                                             Toast.makeText(RegisterActivity.this, "Case kheyeche", Toast.LENGTH_SHORT).show();
                                         }
