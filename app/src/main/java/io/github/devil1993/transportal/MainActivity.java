@@ -1,6 +1,10 @@
 package io.github.devil1993.transportal;
 
 import android.content.Intent;
+import android.net.Uri;
+import android.net.wifi.ScanResult;
+import android.os.Environment;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -11,9 +15,19 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     RadioButton rb;
@@ -62,6 +76,33 @@ public class MainActivity extends AppCompatActivity {
             }
 
         });
+        Thread t = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    String path = Environment.getExternalStorageDirectory().getPath()+"/TransPortal/ToUpload/";
+                    File folder = new File(path);
+                    File[] listOfFiles = folder.listFiles();
+                    StorageReference storageRef = FirebaseStorage.getInstance().getReference();
+                    for(File f : listOfFiles){
+                        final File F = f;
+                        Uri file = Uri.fromFile(f);
+                        StorageReference fileref = storageRef.child(file.getLastPathSegment());
+                        UploadTask ut = fileref.putFile(file);
+                        ut.addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
+                            @Override
+                            public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
+                                F.delete();
+                            }
+                        });
+                    }
+                }
+                catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        };
+        t.start();
     }
 
     @Override
@@ -82,6 +123,27 @@ public class MainActivity extends AppCompatActivity {
         FirebaseUser fbu = FirebaseAuth.getInstance().getCurrentUser();
         String msg = "Signed in as " + fbu.getEmail();
         Toast.makeText(MainActivity.this,msg,Toast.LENGTH_SHORT).show();
-
+//        Thread t = new Thread() {
+//            @Override
+//            public void run() {
+//                String path = Environment.getExternalStorageDirectory().getPath()+"/TransPortal/ToUpload/";
+//                File folder = new File(path);
+//                File[] listOfFiles = folder.listFiles();
+//                StorageReference storageRef = FirebaseStorage.getInstance().getReference();
+//                for(File f : listOfFiles){
+//                    final File F = f;
+//                    Uri file = Uri.fromFile(f);
+//                    StorageReference fileref = storageRef.child(file.getLastPathSegment());
+//                    UploadTask ut = fileref.putFile(file);
+//                    ut.addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
+//                        @Override
+//                        public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
+//                            F.delete();
+//                        }
+//                    });
+//                }
+//            }
+//        };
+//        t.start();
     }
 }

@@ -10,13 +10,16 @@ import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.Environment;
 import android.provider.Settings;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.widget.RatingBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 
+import com.google.android.gms.tasks.OnFailureListener;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.storage.FirebaseStorage;
@@ -24,6 +27,11 @@ import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -38,12 +46,31 @@ public class LoggerActivity extends AppCompatActivity{
     PrintWriter gpsWriter,wifiWriter, hariDesai;
     Location location;
     SeekBar seekBar;
+    RatingBar ratingBar;
     float progress;
     boolean isActive;
+    private static void copyFileUsingStream(File source, File dest) throws IOException {
+        InputStream is = null;
+        OutputStream os = null;
+        try {
+            is = new FileInputStream(source);
+            os = new FileOutputStream(dest);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = is.read(buffer)) > 0) {
+                os.write(buffer, 0, length);
+            }
+        } finally {
+            is.close();
+            os.close();
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_logger);
+        ratingBar = findViewById(R.id.ratingBar);;
         seekBar = findViewById(R.id.seekBar);
         tvGPS = findViewById(R.id.tvGPS);
         tvWifi = findViewById(R.id.tvWifi);
@@ -53,20 +80,28 @@ public class LoggerActivity extends AppCompatActivity{
         mode = getIntent().getStringExtra("MODE");
         ID = UUID.randomUUID().toString();
         isActive = false;
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+//        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+//            @Override
+//            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+//                progress = (float)i/100;
+//            }
+//
+//            @Override
+//            public void onStartTrackingTouch(SeekBar seekBar) {
+//
+//            }
+//
+//            @Override
+//            public void onStopTrackingTouch(SeekBar seekBar) {
+//
+//            }
+//        });
+
+        ratingBar.setOnRatingBarChangeListener(new RatingBar.OnRatingBarChangeListener() {
             @Override
-            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                progress = (float)i/100;
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
+            public void onRatingChanged(RatingBar ratingBar, float v, boolean b) {
+                progress = v/5;
+                seekBar.setProgress((int)v*20);
             }
         });
 
@@ -83,8 +118,9 @@ public class LoggerActivity extends AppCompatActivity{
 
         String root = Environment.getExternalStorageDirectory().getPath();
         String appDirectory = root + "/TransPortal";
+        String backlog = appDirectory+"/ToUpload";
 
-        File appDir = new File(appDirectory);
+        File appDir = new File(backlog);
 
         if(!appDir.exists()){
             try{
@@ -185,11 +221,11 @@ public class LoggerActivity extends AppCompatActivity{
         FirebaseStorage storage = FirebaseStorage.getInstance();
         StorageReference storageRef = storage.getReference();
 
-        Uri wifiFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
+        final Uri wifiFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
                 +"/TransPortal/"+mode.toLowerCase()+"_WIFI_"+ID+".txt"));
-        Uri gpsFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
+        final Uri gpsFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
                 +"/TransPortal/"+mode.toLowerCase()+"_GPS_"+ID+".txt"));
-        Uri markFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
+        final Uri markFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
                 +"/TransPortal/"+mode.toLowerCase()+"_MARKING_"+ID+".txt"));
 
         StorageReference wifiRef = storageRef.child(wifiFile.getLastPathSegment());
@@ -198,6 +234,45 @@ public class LoggerActivity extends AppCompatActivity{
         UploadTask wifiUploadTask = wifiRef.putFile(wifiFile);
         UploadTask gpsUploadTask = gpsRef.putFile(gpsFile);
         UploadTask markUploadTask = markRef.putFile(markFile);
+
+        wifiUploadTask.addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception exception) {
+                Uri destFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
+                        +"/TransPortal/ToUpload/"+mode.toLowerCase()+"_WIFI_"+ID+".txt"));
+                try {
+                    copyFileUsingStream(new File(wifiFile.getPath()),new File(destFile.getPath()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        gpsUploadTask.addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception exception) {
+                Uri destFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
+                        +"/TransPortal/ToUpload/"+mode.toLowerCase()+"_GPS_"+ID+".txt"));
+                try {
+                    copyFileUsingStream(new File(gpsFile.getPath()),new File(destFile.getPath()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        markUploadTask.addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception exception) {
+                Uri destFile = Uri.fromFile(new File(Environment.getExternalStorageDirectory().getPath()
+                        +"/TransPortal/ToUpload/"+mode.toLowerCase()+"_MARKING_"+ID+".txt"));
+                try {
+                    copyFileUsingStream(new File(markFile.getPath()),new File(destFile.getPath()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
         DatabaseReference mDatabase;
         mDatabase = FirebaseDatabase.getInstance().getReference().child("files");
         mDatabase.push().setValue(wifiFile.getLastPathSegment());
