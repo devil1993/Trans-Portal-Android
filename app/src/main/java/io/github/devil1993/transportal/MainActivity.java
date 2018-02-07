@@ -188,7 +188,8 @@ public class MainActivity extends AppCompatActivity {
             t.start();
         }
         catch (Exception e){
-            TransLogger.appendLog(e.getMessage()+"\n"+e.getStackTrace(),TransLogger.ERROR);
+            TransLogger.appendLog(e,TransLogger.ERROR);
+            throw e;
         }
     }
 
@@ -235,7 +236,8 @@ public class MainActivity extends AppCompatActivity {
     //        t.start();
         }
         catch (Exception e){
-            TransLogger.appendLog(e.getMessage()+"\n"+e.getStackTrace(),TransLogger.ERROR);
+            TransLogger.appendLog(e,TransLogger.ERROR);
+            throw e;
         }
     }
 }

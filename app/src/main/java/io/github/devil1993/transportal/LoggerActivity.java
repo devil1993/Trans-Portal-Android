@@ -73,7 +73,6 @@ public class LoggerActivity extends AppCompatActivity{
             super.onCreate(savedInstanceState);
             setContentView(R.layout.activity_logger);
             ratingBar = findViewById(R.id.ratingBar);
-            ;
             seekBar = findViewById(R.id.seekBar);
             tvGPS = findViewById(R.id.tvGPS);
             tvWifi = findViewById(R.id.tvWifi);
@@ -132,7 +131,7 @@ public class LoggerActivity extends AppCompatActivity{
                     Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT);
                 }
             }
-
+            appDir = new File(appDirectory);
             try {
                 hariDesai = new PrintWriter(appDir + "/" + mode.toLowerCase() + "_MARKING_" + ID + ".txt", "UTF-8");
                 gpsWriter = new PrintWriter(appDir + "/" + mode.toLowerCase() + "_GPS_" + ID + ".txt", "UTF-8");
@@ -204,12 +203,14 @@ public class LoggerActivity extends AppCompatActivity{
             try {
                 service.requestLocationUpdates(provider, 0, 0, loclist);
             } catch (SecurityException e) {
-                TransLogger.appendLog(e.getMessage()+"\n"+e.getStackTrace(),TransLogger.WARN);
+                TransLogger.appendLog(e,TransLogger.WARN);
                 throw e;
             }
+//            throw new Exception("Testing");
         }
         catch (Exception e){
-            TransLogger.appendLog(e.getMessage()+"\n"+e.getStackTrace(),TransLogger.ERROR);
+            TransLogger.appendLog(e,TransLogger.ERROR);
+            throw e;
         }
     }
 
@@ -308,7 +309,8 @@ public class LoggerActivity extends AppCompatActivity{
             });
         }
         catch(Exception e){
-            TransLogger.appendLog(e.getMessage()+"\n"+e.getStackTrace(),TransLogger.ERROR);
+            TransLogger.appendLog(e,TransLogger.ERROR);
+            throw e;
         }
 
     }
@@ -354,7 +356,7 @@ public class LoggerActivity extends AppCompatActivity{
                     tvGPS.setText("Location not available.");
             }
         } catch (SecurityException e) {
-            TransLogger.appendLog(e.getMessage()+"\n"+e.getStackTrace(),TransLogger.LOG);
+            TransLogger.appendLog(e.getMessage(),TransLogger.LOG);
         }
     }
 }
